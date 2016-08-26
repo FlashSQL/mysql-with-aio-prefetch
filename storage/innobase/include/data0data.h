@@ -33,6 +33,7 @@ Created 5/30/1994 Heikki Tuuri
 #include "mem0mem.h"
 #include "dict0types.h"
 
+#include "rem0types.h"
 /** Storage for overflow data in a big record, that is, a clustered
 index record which needs external storage of data fields */
 struct big_rec_t;
@@ -529,6 +530,14 @@ struct big_rec_t {
 	big_rec_field_t*fields;		/*!< stored fields */
 };
 
+/** A structure to contain AIO Prefetch information. */
+struct prefetch_t {
+	rec_t*	pre_rec;
+	dtuple_t*	pre_clust_ref;
+	ulint	space_no;
+	ulint	page_no;
+};
+  
 #ifndef UNIV_NONINL
 #include "data0data.ic"
 #endif

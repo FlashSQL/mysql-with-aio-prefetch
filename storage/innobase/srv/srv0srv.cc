@@ -274,6 +274,17 @@ UNIV_INTERN ulint	srv_max_n_open_files	  = 300;
 UNIV_INTERN ulong	srv_io_capacity         = 200;
 UNIV_INTERN ulong	srv_max_io_capacity     = 400;
 
+#include "aio0prefetch.h"
+#ifdef AIO_PREFETCH
+UNIV_INTERN ibool   srv_use_aio_prefetch = FALSE;
+# ifdef UNIV_DEBUG
+UNIV_INTERN ibool   srv_print_aio_prefetch_debug = TRUE;
+# endif
+UNIV_INTERN ulint   srv_aio_prefetch_n  = 0;
+UNIV_INTERN ulint   srv_aio_prefetch_reap_n = 0;
+UNIV_INTERN unsigned long   srv_aio_prefetch_reap_timeout = 0UL;
+#endif
+
 /* The InnoDB main thread tries to keep the ratio of modified pages
 in the buffer pool to all database pages in the buffer pool smaller than
 the following number. But it is not guaranteed that the value stays below

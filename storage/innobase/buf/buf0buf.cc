@@ -2710,6 +2710,9 @@ loop:
 		}
 
 		if (buf_read_page(space, zip_size, offset)) {
+#ifdef AIO_PREFETCH
+
+#endif
 			buf_read_ahead_random(space, zip_size, offset,
 					      ibuf_inside(mtr));
 

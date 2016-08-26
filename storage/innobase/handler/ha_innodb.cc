@@ -155,6 +155,18 @@ static char*	innobase_disable_monitor_counter	= NULL;
 static char*	innobase_reset_monitor_counter		= NULL;
 static char*	innobase_reset_all_monitor_counter	= NULL;
 
+#include "aio0prefetch.h"
+/* These variables can be set for asynchronouns prefetch. */
+#ifdef AIO_PREFETCH
+static my_bool	innobase_use_aio_prefetch = FALSE;
+# ifdef UNIV_DEBUG
+static my_bool	innobase_print_aio_prefetch_debug = TRUE;
+# endif
+static ulint	innobase_aio_prefetch_n = 32;
+static ulint	innobase_aio_prefetch_reap_n = 1;
+static unsigned long	innobase_aio_prefetch_reap_timeout = 20000UL;
+#endif
+
 /* The highest file format being used in the database. The value can be
 set by user, however, it will be adjusted to the newer file format if
 a table of such format is created/opened. */
@@ -3301,6 +3313,16 @@ innobase_change_buffering_inited_ok:
 			"together with the InnoDB's internal memory "
 			"allocator.\n");
 	}
+
+#ifdef AIO_PREFETCH
+	srv_use_aio_prefetch = (ibool) innobase_use_aio_prefetch;
+# ifdef UNIV_DEBUG
+	srv_print_aio_prefetch_debug = (ibool) innobase_print_aio_prefetch_debug;
+# endif
+	srv_aio_prefetch_n = innobase_aio_prefetch_n;
+	srv_aio_prefetch_reap_n = innobase_aio_prefetch_reap_n;
+	srv_aio_prefetch_reap_timeout = innobase_aio_prefetch_reap_timeout;
+#endif
 
 	srv_n_file_io_threads = (ulint) innobase_file_io_threads;
 	srv_n_read_io_threads = (ulint) innobase_read_io_threads;
@@ -15884,6 +15906,35 @@ static MYSQL_SYSVAR_ULONG(io_capacity_max, srv_max_io_capacity,
   SRV_MAX_IO_CAPACITY_DUMMY_DEFAULT, 100,
   SRV_MAX_IO_CAPACITY_LIMIT, 0);
 
+#ifdef AIO_PREFETCH
+static MYSQL_SYSVAR_BOOL(use_aio_prefetch, innobase_use_aio_prefetch,
+		PLUGIN_VAR_OPCMDARG,
+		"Set AIO_PREFETCH disable(default)",
+		NULL, NULL, FALSE);
+
+# ifdef UNIV_DEBUG
+static MYSQL_SYSVAR_BOOL(print_aio_prefetch_debug, innobase_print_aio_prefetch_debug,
+		PLUGIN_VAR_OPCMDARG,
+		"Log AIO_PREFETCH disable(default)",
+		NULL, NULL, TRUE);
+# endif
+/* should be modified (automatically) to be flexible according to a sort-buffer size. */
+static MYSQL_SYSVAR_ULONG(aio_prefetch_n, innobase_aio_prefetch_n,
+		PLUGIN_VAR_RQCMDARG,
+		"Minimum number of AIO submissions",
+		NULL, NULL, 32, 1, 100000, 0);
+
+static MYSQL_SYSVAR_ULONG(aio_prefetch_reap_n, innobase_aio_prefetch_reap_n,
+		PLUGIN_VAR_RQCMDARG,
+		"Minimum number of AIO completion a thread can reap",
+		NULL, NULL, 1, 1, 8 * OS_AIO_N_PENDING_IOS_PER_THREAD, 0);
+
+static MYSQL_SYSVAR_ULONG(aio_prefetch_reap_timeout, innobase_aio_prefetch_reap_timeout,
+		PLUGIN_VAR_RQCMDARG,
+		"Timeout for each io_getevents() calls in AIO_PREFETCH mode",
+		NULL, NULL, 20000UL, 1000UL, 500000000UL, 0);
+#endif
+
 #ifdef UNIV_DEBUG
 static MYSQL_SYSVAR_BOOL(purge_run_now, innodb_purge_run_now,
   PLUGIN_VAR_OPCMDARG,
@@ -16771,6 +16822,16 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(read_only),
   MYSQL_SYSVAR(io_capacity),
   MYSQL_SYSVAR(io_capacity_max),
+#ifdef AIO_PREFETCH
+  MYSQL_SYSVAR(use_aio_prefetch),
+# ifdef UNIV_DEBUG
+  MYSQL_SYSVAR(print_aio_prefetch_prefetch),
+# endif
+  MYSQL_SYSVAR(aio_prefetch_n),
+  MYSQL_SYSVAR(aio_prefetch_reap_n),
+  MYSQL_SYSVAR(aio_prefetch_reap_timeout),
+#endif
+
   MYSQL_SYSVAR(monitor_enable),
   MYSQL_SYSVAR(monitor_disable),
   MYSQL_SYSVAR(monitor_reset),

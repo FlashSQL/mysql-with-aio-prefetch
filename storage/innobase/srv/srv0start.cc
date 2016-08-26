@@ -1958,6 +1958,33 @@ innobase_start_or_create_for_mysql(void)
 		return(DB_ERROR);
 	}
 
+#if defined(AIO_PREFETCH)
+	if(srv_use_aio_prefetch) {
+		ib_logf(IB_LOG_LEVEL_INFO,
+				"Asynchronous IO Prefetch is activated.");
+		ib_logf(IB_LOG_LEVEL_INFO,
+				"Please set related variables carefully.");
+		ib_logf(IB_LOG_LEVEL_INFO,
+				"AIO_PREFETCH_N = %lu",
+				srv_aio_prefetch_n);
+		ib_logf(IB_LOG_LEVEL_INFO,
+				"AIO_PREFETCH_REAP_N = %lu",
+			   srv_aio_prefetch_reap_n);
+		ib_logf(IB_LOG_LEVEL_INFO,
+				"AIO_PREFETCH_REAP_TIMEOUT = %lu",
+			   srv_aio_prefetch_reap_timeout);
+		ib_logf(IB_LOG_LEVEL_INFO,
+				"(1000UL is 1us).");
+# ifdef UNIV_DEBUG
+		if(srv_print_aio_prefetch_debug) {
+			ib_logf(IB_LOG_LEVEL_INFO,
+					"AIO PREFTCH LOG is activated.");
+		}
+# endif
+	}
+#endif
+
+
 	fil_init(srv_file_per_table ? 50000 : 5000, srv_max_n_open_files);
 
 	double	size;

@@ -52,6 +52,10 @@ Created 10/10/1995 Heikki Tuuri
 #include "buf0checksum.h"
 #include "ut0counter.h"
 
+/* AIO Prefetch */
+#include "aio0prefetch.h"
+
+
 /* Global counters used inside InnoDB. */
 struct srv_stats_t {
 	typedef ib_counter_t<lsn_t, 1, single_indexer_t> lsn_ctr_1_t;
@@ -242,6 +246,18 @@ extern ulint	srv_n_data_files;
 extern char**	srv_data_file_names;
 extern ulint*	srv_data_file_sizes;
 extern ulint*	srv_data_file_is_raw_partition;
+
+/* AIO_PREFETCH variables */
+#ifdef AIO_PREFETCH
+extern ibool    srv_use_aio_prefetch;
+# ifdef UNIV_DEBUG
+extern ibool    srv_print_aio_prefetch_debug;
+# endif
+extern ulint    srv_aio_prefetch_n;
+extern ulint    srv_aio_prefetch_reap_n;
+extern unsigned long    srv_aio_prefetch_reap_timeout;
+#endif
+
 
 extern ibool	srv_auto_extend_last_data_file;
 extern ulint	srv_last_file_size_max;

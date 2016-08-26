@@ -58,6 +58,7 @@ Created 10/21/1995 Heikki Tuuri
 
 #if defined(LINUX_NATIVE_AIO)
 #include <libaio.h>
+#include "aio0prefetch.h"
 #endif
 
 /** Insert buffer segment id */
@@ -238,8 +239,23 @@ struct os_aio_array_t{
 };
 
 #if defined(LINUX_NATIVE_AIO)
+# ifdef AIO_PREFETCH
+/**	# of AIO reap for each io_getevents() call = 1. 
+ 	This value is a default value in the InnoDB.
+	It can be changed with a server configuration variable,
+	'innodb_aio_prefetch_reap_n' in my.cnf file.
+ */
+#define OS_AIO_REAP_N		srv_aio_prefetch_reap_n
+/**	timeout for each io_getevents() call = 20us. 
+ 	This value is for mordern fast storages.
+	It can be changed with a server configuration variable,
+	'innodb_aio_prefetch_reap_timeout' in my.cnf file.
+ */
+#define OS_AIO_REAP_TIMEOUT srv_aio_prefetch_reap_timeout
+# else
 /** timeout for each io_getevents() call = 500ms. */
 #define OS_AIO_REAP_TIMEOUT	(500000000UL)
+# endif
 
 /** time to sleep, in microseconds if io_setup() returns EAGAIN. */
 #define OS_AIO_IO_SETUP_RETRY_SLEEP	(500000UL)
@@ -4974,7 +4990,13 @@ retry:
 	timeout.tv_sec = 0;
 	timeout.tv_nsec = OS_AIO_REAP_TIMEOUT;
 
-	ret = io_getevents(io_ctx, 1, seg_size, events, &timeout);
+	if(srv_use_aio_prefetch) {
+		ret = io_getevents(io_ctx, OS_AIO_REAP_N, seg_size, events, &timeout);
+	}
+	
+	else {
+		ret = io_getevents(io_ctx, 1, seg_size, events, &timeout);
+	}
 
 	if (ret > 0) {
 		for (i = 0; i < ret; i++) {
