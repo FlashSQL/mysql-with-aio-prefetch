@@ -66,6 +66,8 @@ Created 9/17/2000 Heikki Tuuri
 #include "ha_prototypes.h"
 #include <algorithm>
 
+#include "srv0srv.h"
+
 /** Provide optional 4.x backwards compatibility for 5.0 and above */
 UNIV_INTERN ibool	row_rollback_on_timeout	= FALSE;
 
@@ -795,7 +797,15 @@ row_create_prebuilt(
 	/* We allocate enough space for the objects that are likely to
 	be created later in order to minimize the number of malloc()
 	calls */
-	heap = mem_heap_create(PREBUILT_HEAP_INITIAL_SIZE + 2 * srch_key_len);
+	if(srv_use_aio_prefetch) {
+		heap = mem_heap_create(PREBUILT_HEAP_INITIAL_SIZE + 2 * srch_key_len
+				+ srv_aio_prefetch_n * (ref_len + sizeof(dtuple_t *))
+			 	+ sizeof(rec_t **) + sizeof(prefetch_t *) + sizeof(dtuple_t**)
+				+ sizeof(btr_pcur_t) + 3 * sizeof(ulint) + 2 * sizeof(ibool));
+	}
+	else {
+		heap = mem_heap_create(PREBUILT_HEAP_INITIAL_SIZE + 2 * srch_key_len);
+	}
 
 	prebuilt = static_cast<row_prebuilt_t*>(
 		mem_heap_zalloc(heap, sizeof(*prebuilt)));
@@ -847,6 +857,24 @@ row_create_prebuilt(
 	prebuilt->fts_doc_id = 0;
 
 	prebuilt->mysql_row_len = mysql_row_len;
+	if(srv_use_aio_prefetch) {
+		prebuilt->ref_count = 0;
+		prebuilt->page_count = 0;
+		prebuilt->read_count = 0;
+		prebuilt->aio_prefetch_blocked = false;
+		prebuilt->ref_gathering_done = false;
+		
+		prebuilt->rec_list = (rec_t **)malloc(sizeof(rec_t *)*srv_aio_prefetch_n);
+		prebuilt->clust_ref_list = (dtuple_t **)malloc(sizeof(dtuple_t *)*srv_aio_prefetch_n);
+
+		for(int i = 0; i < srv_aio_prefetch_n; i++) {
+			prebuilt->rec_list[i] = NULL;
+			ref = dtuple_create(heap, ref_len);
+			prebuilt->clust_ref_list[i] = ref;
+		}
+		
+		btr_pcur_reset(&prebuilt->prefetch_pcur);
+	}
 
 	return(prebuilt);
 }

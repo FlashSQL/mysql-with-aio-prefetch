@@ -878,7 +878,17 @@ struct row_prebuilt_t {
 					search key values from MySQL format
 					to InnoDB format.*/
 	uint		srch_key_val_len; /*!< Size of search key */
-
+#ifdef AIO_PREFETCH
+	btr_pcur_t	prefetch_pcur;
+	rec_t**	rec_list;
+	dtuple_t**	clust_ref_list;
+	prefetch_t*	prefetch_info;
+	ulint		ref_count;
+	ulint		page_count;
+	ulint		read_count;
+	ibool		aio_prefetch_blocked;
+	ibool		ref_gathering_done;
+#endif
 };
 
 /** Callback for row_mysql_sys_index_iterate() */

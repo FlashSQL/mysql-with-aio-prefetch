@@ -155,10 +155,10 @@ static char*	innobase_disable_monitor_counter	= NULL;
 static char*	innobase_reset_monitor_counter		= NULL;
 static char*	innobase_reset_all_monitor_counter	= NULL;
 
-#include "aio0prefetch.h"
+//#include "aio0prefetch.h"
 /* These variables can be set for asynchronouns prefetch. */
 #ifdef AIO_PREFETCH
-static my_bool	innobase_use_aio_prefetch = FALSE;
+my_bool	innobase_use_aio_prefetch = FALSE;
 # ifdef UNIV_DEBUG
 static my_bool	innobase_print_aio_prefetch_debug = TRUE;
 # endif

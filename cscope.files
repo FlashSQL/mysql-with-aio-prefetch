@@ -1636,9 +1636,7 @@
 ./cmd-line-utils/libedit/map.h
 ./cmd-line-utils/libedit/map.c
 ./cmd-line-utils/libedit/read.c
-./cmd-line-utils/libedit/fcns.h
 ./cmd-line-utils/libedit/chartype.c
-./cmd-line-utils/libedit/emacs.h
 ./cmd-line-utils/libedit/tokenizer.c
 ./cmd-line-utils/libedit/parse.c
 ./cmd-line-utils/libedit/eln.c
@@ -1654,14 +1652,10 @@
 ./cmd-line-utils/libedit/el.c
 ./cmd-line-utils/libedit/chared.h
 ./cmd-line-utils/libedit/history.c
-./cmd-line-utils/libedit/help.h
-./cmd-line-utils/libedit/common.h
-./cmd-line-utils/libedit/vi.h
 ./cmd-line-utils/libedit/refresh.h
 ./cmd-line-utils/libedit/hist.c
 ./cmd-line-utils/libedit/read.h
 ./cmd-line-utils/libedit/el.h
-./cmd-line-utils/libedit/fcns.c
 ./cmd-line-utils/libedit/sig.c
 ./cmd-line-utils/libedit/chared.c
 ./cmd-line-utils/libedit/keymacro.h
@@ -1687,7 +1681,6 @@
 ./cmd-line-utils/libedit/vi.c
 ./cmd-line-utils/libedit/readline.c
 ./cmd-line-utils/libedit/parse.h
-./cmd-line-utils/libedit/help.c
 ./libevent/kqueue.c
 ./libevent/evrpc-internal.h
 ./libevent/evrpc.c
@@ -1885,7 +1878,6 @@
 ./source_downloads/gmock-1.6.0/src/gmock-all.cc
 ./source_downloads/gmock-1.6.0/src/gmock-spec-builders.cc
 ./scripts/comp_sql.c
-./scripts/mysql_fix_privilege_tables_sql.c
 ./extra/yassl/include/openssl/crypto.h
 ./extra/yassl/include/openssl/prefix_ssl.h
 ./extra/yassl/include/openssl/lhash.h
@@ -2058,7 +2050,6 @@
 ./include/my_md5.h
 ./include/sha2.h
 ./include/thr_lock.h
-./include/mysqld_error.h
 ./include/myisammrg.h
 ./include/waiting_threads.h
 ./include/welcome_copyright_notice.h
@@ -2111,7 +2102,6 @@
 ./sql-common/client.c
 ./sql-common/my_time.c
 ./libmysql/libmysql_exports_file.cc
-./libmysql/mysqlclient_depends.c
 ./libmysql/authentication_win/log_client.cc
 ./libmysql/authentication_win/handshake_client.cc
 ./libmysql/authentication_win/handshake.cc
@@ -2304,7 +2294,6 @@
 ./strings/t_ctype.h
 ./strings/strappend.c
 ./strings/bchange.c
-./libmysqld/mysqlserver_depends.c
 ./libmysqld/embedded_priv.h
 ./libmysqld/emb_qcache.cc
 ./libmysqld/resource.h
@@ -2430,7 +2419,6 @@
 ./sql/udf_example.cc
 ./sql/ha_partition.h
 ./sql/sql_handler.cc
-./sql/sql_yacc.cc
 ./sql/sql_plugin_services.h
 ./sql/item_func.cc
 ./sql/handler.h
@@ -2626,7 +2614,6 @@
 ./sql/rpl_record.cc
 ./sql/log.cc
 ./sql/sql_acl.cc
-./sql/sql_yacc.h
 ./sql/sql_cursor.h
 ./sql/log_event.h
 ./sql/sql_resolver.cc
@@ -2690,7 +2677,6 @@
 ./sql/sql_binlog.cc
 ./sql/sql_cmd.h
 ./sql/sql_planner.cc
-./sql/lex_hash.h
 ./sql/item_timefunc.cc
 ./sql/sp.cc
 ./sql/sql_insert.cc
@@ -2734,7 +2720,6 @@
 ./sql/abstract_query_plan.h
 ./sql/ha_ndbcluster_push.cc
 ./sql/sql_load.cc
-./sql/lex_token.h
 ./sql/frm_crypt.cc
 ./sql/log_event_old.h
 ./sql/ha_ndbcluster_push.h
