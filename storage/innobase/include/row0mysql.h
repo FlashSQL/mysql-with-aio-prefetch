@@ -886,8 +886,8 @@ struct row_prebuilt_t {
 	ulint		ref_count;
 	ulint		page_count;
 	ulint		read_count;
-	ibool		aio_prefetch_blocked;
-	ibool		ref_gathering_done;
+	ibool		aio_prefetch_enabled; // Able to prefetch or not.
+	ibool		ref_gathering_done;	// Check a proper amount of records are collected.
 #endif
 };
 

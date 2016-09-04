@@ -861,19 +861,17 @@ row_create_prebuilt(
 		prebuilt->ref_count = 0;
 		prebuilt->page_count = 0;
 		prebuilt->read_count = 0;
-		prebuilt->aio_prefetch_blocked = false;
-		prebuilt->ref_gathering_done = false;
+		prebuilt->aio_prefetch_enabled = FALSE;
+		prebuilt->ref_gathering_done = FALSE;
 		
 		prebuilt->rec_list = (rec_t **)malloc(sizeof(rec_t *)*srv_aio_prefetch_n);
 		prebuilt->clust_ref_list = (dtuple_t **)malloc(sizeof(dtuple_t *)*srv_aio_prefetch_n);
 
-		for(int i = 0; i < srv_aio_prefetch_n; i++) {
+		for(ulint i = 0; i < srv_aio_prefetch_n; i++) {
 			prebuilt->rec_list[i] = NULL;
 			ref = dtuple_create(heap, ref_len);
 			prebuilt->clust_ref_list[i] = ref;
 		}
-		
-		btr_pcur_reset(&prebuilt->prefetch_pcur);
 	}
 
 	return(prebuilt);

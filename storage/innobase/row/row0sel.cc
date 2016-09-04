@@ -62,6 +62,8 @@ Created 12/19/1997 Heikki Tuuri
 
 #include "my_compare.h" /* enum icp_result */
 
+#include "aio0prefetch.h"
+#include "srv0srv.h"
 /* Maximum number of rows to prefetch; MySQL interface has another parameter */
 #define SEL_MAX_N_PREFETCH	16
 
@@ -4130,7 +4132,14 @@ wait_table_again:
 
 			goto next_rec;
 		}
-
+#ifdef AIO_PREFETCH
+		/* We have just started and read a record so go back to do AIO_PREFETCH. */
+		if(srv_use_aio_prefetch) {
+			if(prebuilt->ref_gathering_done) {
+				goto requires_clust_rec;
+			}
+		}
+#endif
 	} else if (dtuple_get_n_fields(search_tuple) > 0) {
 
 		btr_pcur_open_with_no_init(index, search_tuple, mode,
@@ -4392,7 +4401,16 @@ wrong_offs:
 			ut_print_name(stderr, trx, FALSE, index->name);
 			fputs(" record not found 3\n", stderr);
 #endif
-
+/* AIO_PREFETCH : We do not need to deal with an exception here.
+#ifdef AIO_PREFETCH
+ 			if(srv_use_aio_prefetch) {
+			// If ref_count != 0, then we have not finished reading records.
+ 				if(UNIV_LIKELY(prebuilt->ref_count != 0)) {
+ 					goto aio_prefetch;
+ 				}
+ 			}
+#endif
+ */
 			goto normal_return;
 		}
 
@@ -4441,7 +4459,13 @@ wrong_offs:
 			ut_print_name(stderr, trx, FALSE, index->name);
 			fputs(" record not found 4\n", stderr);
 #endif
-
+#ifdef AIO_PREFETCH
+			if(srv_aio_use_prefetch) {
+				if(UNIV_LIKELY(prebuilt->ref_count != 0)) {
+					goto aio_prefetch;
+				}
+			}
+#endif
 			goto normal_return;
 		}
 	}
@@ -4695,6 +4719,14 @@ locks_ok:
 		goto next_rec;
 	case ICP_OUT_OF_RANGE:
 		err = DB_RECORD_NOT_FOUND;
+#ifdef AIO_PREFETCH
+		/* Check if we have any refences not processed yet.*/
+		if(srv_use_aio_prefetch) {
+			if(UNIV_LIKELY(prebuilt->ref_count != 0)) {
+				goto aio_prefetch;
+			}
+		}
+#endif
 		goto idx_cond_failed;
 	case ICP_MATCH:
 		break;
@@ -4710,9 +4742,7 @@ requires_clust_rec:
 		/* We use a 'goto' to the preceding label if a consistent
 		read of a secondary index record requires us to look up old
 		versions of the associated clustered index record. */
-
-		ut_ad(rec_offs_validate(rec, index, offsets));
-
+		
 		/* It was a non-clustered index and we must fetch also the
 		clustered index record */
 
@@ -4721,10 +4751,66 @@ requires_clust_rec:
 		/* The following call returns 'offsets' associated with
 		'clust_rec'. Note that 'clust_rec' can be an old version
 		built for a consistent read. */
+#if AIO_PREFETCH
+		if(srv_use_aio_prefetch) {
+			ut_ad(rec_offs_validate(rec, index, offsets));
+			/* If the current record is not NULL, copy it to a record array. */
+			if(rec != NULL) {
+				ulint ref_cnt = prebuilt->ref_count;
+				if(prebuilt->ref_list[ref_count] == NULL)
+					prebuilt->ref_list[ref_count] = (rec_t *)malloc(rec_offs_size(offsets));
+				memcpy(prebuilt->ref_list[ref_cnt], rec, rec_offs_size(offsets));
+				rec_offs_make_valid(prebuilt->ref_list[ref_cnt], index, offsets);
+			
+				row_build_row_ref_in_tuple(prebuilt->clust_ref_list[ref_cnt], 
+										prebuilt->ref_list[ref_cnt], 
+										index, offsets, trx);
 
+				if(++prebuilt->ref_cnt < srv_aio_prefetch_n)
+					goto next_rec;
+				else {
+					prebuilt->aio_prefetch_enabled = TRUE;
+				}
+			}
+			else {
+				if(prebuilt->ref_count != 0)
+					prebuilt->aio_prefetch_enabled = TRUE;
+			}
+			
+			/* Collect page numbers and submit AIOs for prefetching. */				
+			if(prebuilt->aio_prefetch_enabled) {
+aio_prefetch:
+				err = row_sel_prefetch(prebuilt, index, thr, &heap, &mtr);
+				if(err == DB_SUCCESS) {
+					prebuilt->aio_prefetch_enabled = FALSE;
+					prebuilt->ref_gathering_done = TRUE;
+				}
+			}
+			/* Check if we find all records in which we have prefeteched pages. */
+			if(prebuilt->read_count != prebuilt->ref_count) {
+get_clust:
+				offsets = rec_get_offsets(prebuilt->ref_list[prebuilt->read_count],
+								index, offsets, ULINT_UNDEFINED, &heap);
+
+				err = row_sel_get_clust_rec_for_mysql(prebuilt, index, 
+							prebuilt->ref_list[prebuilt->read_count],
+							thr, &clust_rec, &offsets, &heap, &mtr);
+
+				if(UNIV_UNLIKELY(clust_rec == NULL)) {
+					prebuilt->read_count++;
+					goto get_clust;
+				}
+			}
+
+		} // SRV_USE_AIO_PREFETCH
+/* We doubt a performance difference in caces to read the required records 
+   - in the orginal order or a sorted order.*/		
+#else
+		ut_ad(rec_offs_validate(rec, index, offsets));
 		err = row_sel_get_clust_rec_for_mysql(prebuilt, index, rec,
 						      thr, &clust_rec,
 						      &offsets, &heap, &mtr);
+#endif
 		switch (err) {
 		case DB_SUCCESS:
 			if (clust_rec == NULL) {
@@ -4770,6 +4856,16 @@ requires_clust_rec:
 		result_rec = clust_rec;
 		ut_ad(rec_offs_validate(result_rec, clust_index, offsets));
 
+#ifdef AIO_PREFETCH
+		if(srv_use_aio_prefetch) {
+			prebuilt->read_count++;
+			if(prebuilt->read_count == prebuilt->ref_count) {
+				prebuilt->read_count = 0;
+				prebuilt->ref_count = 0;
+				prebuilt->ref_gathering_done = FALSE;
+			}
+		}
+#endif
 		if (prebuilt->idx_cond) {
 			/* Convert the record to MySQL format. We were
 			unable to do this in row_search_idx_cond_check(),
@@ -5006,6 +5102,14 @@ next_rec:
 		}
 	}
 
+#ifdef AIO_PREFETCH
+	if(srv_use_aio_prefetch) {
+		if(prebuilt->ref_gathering_done) {
+			goto get_clust;
+		}
+	}
+#endif
+
 	if (moves_up) {
 		if (UNIV_UNLIKELY(!btr_pcur_move_to_next(pcur, &mtr))) {
 not_moved:
@@ -5017,6 +5121,13 @@ not_moved:
 				err = DB_END_OF_INDEX;
 			}
 
+#ifdef AIO_PREFETCH
+			if(srv_use_aio_prefetch) {
+				if(prebuilt->ref_count != 0 && !prebuilt->ref_gathering_done) {
+					goto aio_prefetch;
+				}
+			}
+#endif
 			goto normal_return;
 		}
 	} else {
