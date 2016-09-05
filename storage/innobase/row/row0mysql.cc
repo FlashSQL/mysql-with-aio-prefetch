@@ -872,6 +872,8 @@ row_create_prebuilt(
 			ref = dtuple_create(heap, ref_len);
 			prebuilt->clust_ref_list[i] = ref;
 		}
+
+		prebuilt->prefetch_info = (prefetch_t *)malloc(sizeof(prefetch_t)*srv_aio_prefetch_n);
 	}
 
 	return(prebuilt);
@@ -970,6 +972,12 @@ row_prebuilt_free(
 	}
 
 	dict_table_close(prebuilt->table, dict_locked, TRUE);
+
+	for(ulint i = 0; i < srv_aio_prefetch_n; i++) {
+		free(prebuilt->rec_list[i]);
+	}
+	free(prebuilt->clust_ref_list);
+	free(prebuilt->prefetch_info);
 
 	mem_heap_free(prebuilt->heap);
 }

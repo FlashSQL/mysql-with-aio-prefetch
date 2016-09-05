@@ -170,6 +170,46 @@ btr_cur_search_to_nth_level(
 	const char*	file,	/*!< in: file name */
 	ulint		line,	/*!< in: line where called */
 	mtr_t*		mtr);	/*!< in: mtr */
+
+#ifdef AIO_PREFETCH
+/********************************************************************//**
+Searches an index tree and positions a tree cursor on a given level.
+And stores a child page number. */
+UNIV_INTERN
+ibool
+btr_cur_search_child_page_no(
+/*========================*/
+	dict_index_t*	index,	/*!< in: index */
+	ulint		level,	/*!< in: the tree level of search */
+	row_prebuilt_t*	prebuilt,	/*!< in/out: contains information for AIO_Prefetch. */
+	ulint		mode,	/*!< in: PAGE_CUR_L, ...;
+				NOTE that if the search is made using a unique
+				prefix of a record, mode should be PAGE_CUR_LE,
+				not PAGE_CUR_GE, as the latter may end up on
+				the previous page of the record! Inserts
+				should always be made using PAGE_CUR_LE to
+				search the position! */
+	ulint		latch_mode, /*!< in: BTR_SEARCH_LEAF, ..., ORed with
+				at most one of BTR_INSERT, BTR_DELETE_MARK,
+				BTR_DELETE, or BTR_ESTIMATE;
+				cursor->left_block is used to store a pointer
+				to the left neighbor page, in the cases
+				BTR_SEARCH_PREV and BTR_MODIFY_PREV;
+				NOTE that if has_search_latch
+				is != 0, we maybe do not have a latch set
+				on the cursor page, we assume
+				the caller uses his search latch
+				to protect the record! */
+	btr_cur_t*	cursor, /*!< in/out: tree cursor; the cursor page is
+				s- or x-latched, but see also above! */
+	ulint		has_search_latch,/*!< in: latch mode the caller
+				currently has on btr_search_latch:
+				RW_S_LATCH, or 0 */
+	const char*	file,	/*!< in: file name */
+	ulint		line,	/*!< in: line where called */
+	mtr_t*		mtr);	/*!< in: mtr */
+#endif
+
 /*****************************************************************//**
 Opens a cursor at either end of an index. */
 UNIV_INTERN

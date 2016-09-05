@@ -383,6 +383,97 @@ read_ahead:
 	return(count);
 }
 
+#if defined(AIO_PREFETCH) && defined(LINUX_NATIVE_AIO)
+/********************************************************************//**
+Submit read requests asynchronously.
+@return	number of page read requests issued */
+UNIV_INTERN
+ulint
+buf_async_prefetch(
+/*==================*/
+	prefetch_t*	prefetch_info,	/*!< in: information for page read requests */
+	ulint		page_count)		/*!< in: desired # of page read requests */
+{
+	ulint zip_size;
+	buf_pool_t*	buf_pool; 
+	ib_int64_t	tablespace_version;
+	ulint		count = 0;
+	dberr_t		err;
+	buf_block_t*	block = NULL;
+	ulint		fold;
+	rw_lock_t*	hash_lock;
+
+	ulint		space;
+	ulint		offset;
+	ulint		i;
+
+	if (!srv_use_aio_prefetch) {
+		/* Disabled by user */
+		return(0);
+	}
+
+	for(i = 0; i < page_count; i++) {
+		space = prefetch_info[i].space.no;
+		offset = prefetch_info[i].page_no;
+		
+		zip_size = fil_spage_get_zip_size(space);
+
+		if(zip_size == ULINT_UNDEFINED) {
+			return (FALSE);
+		}
+
+		tablespace_version = fil_space_get_version(space);
+
+		/*=========== Check if a page in buffer ================*/
+		buf_pool = buf_pool_get(space, offset);
+		fold = buf_page_address_fold(space, offset);
+		hash_lock = buf_page_hash_lock_get(buf_pool, fold);
+		rw_lock_s_lock(hash_lock);
+		block = (buf_block_t *)buf_page_hash_get_low(
+				        buf_pool, space, offset, fold);
+		rw_lock_s_unlock(hash_lock);
+
+		if(block == NULL) {
+			count+= buf_read_page_low(&err, false, BUF_READ_ANY_PAGE
+					| OS_AIO_SIMULATED_WAKE_LATER
+					space, zip_size, FALSE,
+					tablespace_version, offset);
+			if (err == DB_TABLESPACE_DELETED) {
+				ut_print_timestamp(stderr);
+				fprintf(stderr,
+					"  InnoDB: Warning: in random"
+					" readahead trying to access\n"
+					"InnoDB: tablespace %lu page %lu,\n"
+					"InnoDB: but the tablespace does not"
+					" exist or is just being dropped.\n",
+					(ulong) space, (ulong) i);
+			}
+		}
+	}
+
+	/* In simulated aio we wake the aio handler threads only after
+	queuing all aio requests, in native aio the following call does
+	nothing: */
+
+	os_aio_simulated_wake_handler_threads();
+
+#ifdef UNIV_DEBUG
+	if (buf_debug_prints && (count > 0)) {
+		fprintf(stderr,
+			"Asynchronous Prefetch  pages %lu\n",(ulong) count);
+	}
+#endif /* UNIV_DEBUG */
+
+	/* Read ahead is considered one I/O operation for the purpose of
+	LRU policy decision. */
+	buf_LRU_stat_inc_io();
+
+	srv_stats.buf_pool_async_prefetch_reads.add(count);
+	srv_stats.buf_pool_reads.add(count);
+	return(count);
+}
+#endif
+
 /********************************************************************//**
 High-level function which reads a page asynchronously from a file to the
 buffer buf_pool if it is not already there. Sets the io_fix flag and sets

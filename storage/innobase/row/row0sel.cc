@@ -64,6 +64,7 @@ Created 12/19/1997 Heikki Tuuri
 
 #include "aio0prefetch.h"
 #include "srv0srv.h"
+
 /* Maximum number of rows to prefetch; MySQL interface has another parameter */
 #define SEL_MAX_N_PREFETCH	16
 
@@ -2998,6 +2999,39 @@ row_sel_build_prev_vers_for_mysql(
 	return(err);
 }
 
+#ifdef AIO_PREFETCH
+/****************************************************************//*** 
+1. Collect and sort child page numbers of level-1 non-leaf pages.
+2. Submit AIOs for prefetch. */
+static
+ibool
+row_sel_prefetch(
+/*==============*/
+	row_prebuilt_t*	prebuilt;	/*!< in: prebuilt struct in the handle
+					Contain information for prefetch */
+	dict_index_t*	sec_index,	/*!< in: secondary index where rec resides */
+	que_thr_t*		thr,		/*!< in: query thread */
+	mem_heap_t**	offset_heap,/*!< in/out: memory heap from which 
+					the offsets are allocated.*/
+	mtr_t*			mtr)		/*!< in: mtr used to get access to the 
+					non-clustered record; the same mtr is used to
+					access the clustered index */
+{
+	dict_index_t*	clust_index;
+	ibool		succeed;
+
+	clust_index = dict_table_get_first_index(sec_index->table);
+	
+	succeed = btr_pcur_open_for_page_no(clust_index, prebuilt, PAGE_CUR_LE, BTR_NO_LATCHES, mtr);
+
+	if(succeed) {
+		ulint submitted = buf_async_prefetch(prebuilt->prefetch_info, prebuilt->page_count);
+		if(submitted != 0)
+			return (TRUE);
+	}
+	return (FALSE);
+}
+#endif
 /*********************************************************************//**
 Retrieves the clustered index record corresponding to a record in a
 non-clustered index. Does the necessary locking. Used in the MySQL

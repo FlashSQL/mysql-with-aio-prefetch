@@ -80,6 +80,19 @@ buf_read_ahead_random(
 	ibool	inside_ibuf);	/*!< in: TRUE if we are inside ibuf
 				routine */
 /********************************************************************//**
+*/
+UNIV_INTERN
+ulint
+buf_async_prefetch(
+/*==================*/
+	ulint	space,		/*!< in: space id */
+	ulint	zip_size,	/*!< in: compressed page size in bytes,
+				or 0 */
+	ulint	offset,		/*!< in: page number of a page which
+				the current thread wants to access */
+	ibool	inside_ibuf);	/*!< in: TRUE if we are inside ibuf
+				routine */
+/********************************************************************//**
 Applies linear read-ahead if in the buf_pool the page is a border page of
 a linear read-ahead area and all the pages in the area have been accessed.
 Does not read any page if the read-ahead mechanism is not activated. Note

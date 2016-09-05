@@ -44,9 +44,5 @@ extern aio_prefetch_array_n;
 /* A struct to contain prefetch information. */
 struct prefetch_t;
 
-/*
- * Prototypes for new functions in Innobse
- */
-
 #endif
 

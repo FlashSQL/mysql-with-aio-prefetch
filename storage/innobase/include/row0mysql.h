@@ -880,14 +880,15 @@ struct row_prebuilt_t {
 	uint		srch_key_val_len; /*!< Size of search key */
 #ifdef AIO_PREFETCH
 	btr_pcur_t	prefetch_pcur;
-	rec_t**	rec_list;
-	dtuple_t**	clust_ref_list;
-	prefetch_t*	prefetch_info;
-	ulint		ref_count;
-	ulint		page_count;
-	ulint		read_count;
-	ibool		aio_prefetch_enabled; // Able to prefetch or not.
-	ibool		ref_gathering_done;	// Check a proper amount of records are collected.
+	rec_t**	rec_list;			/* Array for secodary index records.*/
+	dtuple_t**	clust_ref_list; /* Array for reference tuples extracted from rec_list.*/
+	prefetch_t*	prefetch_info;	/* Array for AIO_Prefetch.
+					 Eliminate duplicated information. */
+	ulint		ref_count;		/* # of records for AIO_Prefetch. */
+	ulint		page_count;		/* # of elements in prefetch_info. */
+	ulint		read_count;		/* # of clust records read after AIO_PREFETCH. */
+	ibool		aio_prefetch_enabled; /* Able to prefetch or not. */
+	ibool		ref_gathering_done;	/* Check a proper amount of records are collected. */
 #endif
 };
 

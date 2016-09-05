@@ -211,6 +211,30 @@ btr_pcur_open_at_rnd_pos_func(
 	mtr_t*		mtr);		/*!< in: mtr */
 #define btr_pcur_open_at_rnd_pos(i,l,c,m)				\
 	btr_pcur_open_at_rnd_pos_func(i,l,c,__FILE__,__LINE__,m)
+
+/****************************************************//**
+Find and collect child-page numbers for AIO Prefetch. */
+UNIV_INLINE
+ibool
+btr_pcur_open_for_page_no_low(
+/*=============*/
+		dict_index_t*	index, /*!< in: index */
+		ulint		level,	/*<! in: level in the btree */
+		row_prebuilt_t*	prebuilt, /*<! in/out: contains information for AIO_Prefetch */
+		ulint		mode,	/*<! in: PAGE_CUR_L, ...;
+					NOTE that if the search is made using a unique
+					prefix of a record, mode should be
+					PAGE_CUR_LE, not PAGE_CUR_GE, as the latter
+					may end up on the previous page from the
+					record! */
+		ulint		latch_mode,	/*!< in: BTR_SEARCH_LEAF, ... */
+		const char*	file,	/*!< in: file name */
+		ulint		line,	/*!< in: line where called */
+		mtr_t*		mtr);	/*!< in: mtr */
+#define btr_pcur_open_for_page_no(i,p,md,l,m)		\
+	btr_pcur_open_for_page_no_low(i,0,p,md,l,__FILE__, __LINE__,m)
+#endif
+
 /**************************************************************//**
 Frees the possible memory heap of a persistent cursor and sets the latch
 mode of the persistent cursor to BTR_NO_LATCHES.

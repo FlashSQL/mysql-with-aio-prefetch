@@ -823,6 +823,332 @@ func_exit:
 	}
 }
 
+#ifdef AIO_PREFETCH
+/********************************************************************//**
+Searches an index tree and positions a tree cursor on a given level.
+And stores a child page number. */
+UNIV_INTERN
+ibool
+btr_cur_search_child_page_no(
+/*========================*/
+	dict_index_t*	index,	/*!< in: index */
+	ulint		level,	/*!< in: the tree level of search */
+	row_prebuilt_t*	prebuilt,	/*!< in/out: contains information for AIO_Prefetch. */
+	ulint		mode,	/*!< in: PAGE_CUR_L, ...;
+				NOTE that if the search is made using a unique
+				prefix of a record, mode should be PAGE_CUR_LE,
+				not PAGE_CUR_GE, as the latter may end up on
+				the previous page of the record! Inserts
+				should always be made using PAGE_CUR_LE to
+				search the position! */
+	ulint		latch_mode, /*!< in: BTR_SEARCH_LEAF, ..., ORed with
+				at most one of BTR_INSERT, BTR_DELETE_MARK,
+				BTR_DELETE, or BTR_ESTIMATE;
+				cursor->left_block is used to store a pointer
+				to the left neighbor page, in the cases
+				BTR_SEARCH_PREV and BTR_MODIFY_PREV;
+				NOTE that if has_search_latch
+				is != 0, we maybe do not have a latch set
+				on the cursor page, we assume
+				the caller uses his search latch
+				to protect the record! */
+	btr_cur_t*	cursor, /*!< in/out: tree cursor; the cursor page is
+				s- or x-latched, but see also above! */
+	ulint		has_search_latch,/*!< in: latch mode the caller
+				currently has on btr_search_latch:
+				RW_S_LATCH, or 0 */
+	const char*	file,	/*!< in: file name */
+	ulint		line,	/*!< in: line where called */
+	mtr_t*		mtr)	/*!< in: mtr */
+{
+	page_t*		page;
+	buf_block_t*	block;
+	ulint		space;
+	buf_block_t*	guess;
+	ulint		height;
+	ulint		page_no;
+	ulint		up_match;
+	ulint		up_bytes;
+	ulint		low_match;
+	ulint		low_bytes;
+	ulint		savepoint;
+	ulint		rw_latch;
+	ulint		page_mode;
+	ulint		buf_mode;
+	ulint		estimate;
+	ulint		zip_size;
+	page_cur_t*	page_cursor;
+	btr_op_t	btr_op;
+	ulint		root_height = 0; /* remove warning */
+
+#ifdef BTR_CUR_ADAPT
+	btr_search_t*	info;
+#endif
+	mem_heap_t*	heap		= NULL;
+	ulint		offsets_[REC_OFFS_NORMAL_SIZE];
+	ulint*		offsets		= offsets_;
+	rec_offs_init(offsets_);
+
+	prefetch_t*	prefetch_info = prebuilt->prefetch_info;
+	const dtuple_t**	ref_tuple = (const dtuple_t **)prebuilt->ref_clust_list;
+	const dtuple_t*	tuple;
+	ulint		page_count = 0;
+	ulint		count = prebuilt->ref_count;
+	ulint		last;
+	
+	
+	/* Currently, PAGE_CUR_LE is the only search mode used for searches
+	ending to upper levels */
+
+	ut_ad(level == 0 || mode == PAGE_CUR_LE);
+	ut_ad(dict_index_check_search_tuple(index, tuple));
+	ut_ad(!dict_index_is_ibuf(index) || ibuf_inside(mtr));
+	ut_ad(dtuple_check_typed(tuple));
+	ut_ad(!(index->type & DICT_FTS));
+	ut_ad(index->page != FIL_NULL);
+
+	UNIV_MEM_INVALID(&cursor->up_match, sizeof cursor->up_match);
+	UNIV_MEM_INVALID(&cursor->up_bytes, sizeof cursor->up_bytes);
+	UNIV_MEM_INVALID(&cursor->low_match, sizeof cursor->low_match);
+	UNIV_MEM_INVALID(&cursor->low_bytes, sizeof cursor->low_bytes);
+#ifdef UNIV_DEBUG
+	cursor->up_match = ULINT_UNDEFINED;
+	cursor->low_match = ULINT_UNDEFINED;
+#endif
+
+	ibool	s_latch_by_caller;
+
+	s_latch_by_caller = latch_mode & BTR_ALREADY_S_LATCHED;
+
+	ut_ad(!s_latch_by_caller
+	      || mtr_memo_contains(mtr, dict_index_get_lock(index),
+				   MTR_MEMO_S_LOCK));
+
+	btr_op = BTR_NO_OP;
+
+	/* Operations on the insert buffer tree cannot be buffered. */
+	ut_ad(btr_op == BTR_NO_OP || !dict_index_is_ibuf(index));
+	/* Operations on the clustered index cannot be buffered. */
+	ut_ad(btr_op == BTR_NO_OP || !dict_index_is_clust(index));
+
+	estimate = latch_mode & BTR_ESTIMATE;
+
+	/* Turn the flags unrelated to the latch mode off. */
+	latch_mode = BTR_LATCH_MODE_WITHOUT_FLAGS(latch_mode);
+
+	ut_ad(!s_latch_by_caller
+	      || latch_mode == BTR_SEARCH_LEAF
+	      || latch_mode == BTR_MODIFY_LEAF);
+
+	cursor->flag = BTR_CUR_BINARY;
+	cursor->index = index;
+
+#ifndef BTR_CUR_ADAPT
+	guess = NULL;
+#else
+	info = btr_search_get_info(index);
+
+	guess = info->root_guess;
+
+#ifdef BTR_CUR_HASH_ADAPT
+
+# ifdef UNIV_SEARCH_PERF_STAT
+	info->n_searches++;
+# endif
+	if (rw_lock_get_writer(&btr_search_latch) == RW_LOCK_NOT_LOCKED
+	    && latch_mode <= BTR_MODIFY_LEAF
+	    && info->last_hash_succ
+	    && !estimate
+# ifdef PAGE_CUR_LE_OR_EXTENDS
+	    && mode != PAGE_CUR_LE_OR_EXTENDS
+# endif /* PAGE_CUR_LE_OR_EXTENDS */
+	    /* If !has_search_latch, we do a dirty read of
+	    btr_search_enabled below, and btr_search_guess_on_hash()
+	    will have to check it again. */
+	    && UNIV_LIKELY(btr_search_enabled)
+	    && btr_search_guess_on_hash(index, info, tuple, mode,
+					latch_mode, cursor,
+					has_search_latch, mtr)) {
+
+		/* Search using the hash index succeeded */
+
+		ut_ad(cursor->up_match != ULINT_UNDEFINED
+		      || mode != PAGE_CUR_GE);
+		ut_ad(cursor->up_match != ULINT_UNDEFINED
+		      || mode != PAGE_CUR_LE);
+		ut_ad(cursor->low_match != ULINT_UNDEFINED
+		      || mode != PAGE_CUR_LE);
+		btr_cur_n_sea++;
+
+		return;
+	}
+# endif /* BTR_CUR_HASH_ADAPT */
+#endif /* BTR_CUR_ADAPT */
+	btr_cur_n_non_sea++;
+
+	/* If the hash search did not succeed, do binary search down the
+	tree */
+
+	if (has_search_latch) {
+		/* Release possible search latch to obey latching order */
+		rw_lock_s_unlock(&btr_search_latch);
+	}
+
+	/* Store the position of the tree latch we push to mtr so that we
+	know how to release it when we have latched leaf node(s) */
+
+	savepoint = mtr_set_savepoint(mtr);
+
+	if (!s_latch_by_caller) {
+		mtr_s_lock(dict_index_get_lock(index), mtr);
+	}
+
+	page_cursor = btr_cur_get_page_cur(cursor);
+
+	/*========== PHASE 1. COLLECT PAGE NUMBERS =========*//**/
+	while(page_count < ref_count) {
+		space = dict_index_get_space(index);
+		page_no = dict_index_get_page(index);
+
+		up_match = 0;
+		up_bytes = 0;
+		low_match = 0;
+		low_bytes = 0;
+
+		height = ULINT_UNDEFINED;
+
+#ifdef PAGE_CUR_LE_OR_EXTENDS
+		ut_ad(mode == PAGE_CUR_L || mode == PAGE_CUR_LE
+			  || mode == PAGE_CUR_LE_OR_EXTENDS);
+#else /* PAGE_CUR_LE_OR_EXTENDS */
+		ut_ad(mode == PAGE_CUR_L || mode == PAGE_CUR_LE);
+#endif /* PAGE_CUR_LE_OR_EXTENDS */
+		page_mode = mode;
+		break;
+		
+		/* Loop and search until we arrive at the desired level */
+search_loop:
+		buf_mode = BUF_GET;
+		rw_latch = RW_NO_LATCH;
+
+		if (height != 0) {
+			/* We are about to fetch the root or a non-leaf page. */
+		} else if (latch_mode <= BTR_MODIFY_LEAF) {
+			rw_latch = latch_mode;
+		}
+
+		zip_size = dict_table_zip_size(index->table);
+
+retry_page_get:
+		block = buf_page_get_gen(
+			space, zip_size, page_no, rw_latch, guess, buf_mode,
+			file, line, mtr);
+
+		if (block == NULL) {
+			/* This must be a search to perform an insert/delete
+			mark/ delete; try using the insert/delete buffer */
+
+			ut_ad(height == 0);
+			ut_ad(cursor->thr);
+
+			buf_mode = BUF_GET;
+
+			goto retry_page_get;
+		}
+
+		block->check_index_page_at_flush = TRUE;
+		page = buf_block_get_frame(block);
+
+		if (rw_latch != RW_NO_LATCH) {
+#ifdef UNIV_ZIP_DEBUG
+			const page_zip_des_t*	page_zip
+				= buf_block_get_page_zip(block);
+			ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+#endif /* UNIV_ZIP_DEBUG */
+
+			buf_block_dbg_add_level(
+				block, dict_index_is_ibuf(index)
+				? SYNC_IBUF_TREE_NODE : SYNC_TREE_NODE);
+		}
+
+		ut_ad(fil_page_get_type(page) == FIL_PAGE_INDEX);
+		ut_ad(index->id == btr_page_get_index_id(page));
+
+		if (UNIV_UNLIKELY(height == ULINT_UNDEFINED)) {
+			/* We are in the root node */
+
+			height = btr_page_get_level(page, mtr);
+			root_height = height;
+			cursor->tree_height = root_height + 1;
+
+#ifdef BTR_CUR_ADAPT
+			if (block != guess) {
+				info->root_guess = block;
+			}
+#endif
+		}
+
+		page_cur_search_with_match(
+			block, index, tuple, page_mode, &up_match, &up_bytes,
+			&low_match, &low_bytes, page_cursor);
+
+		if (estimate) {
+			btr_cur_add_path_info(cursor, height, root_height);
+		}
+
+		/* If this is the desired level, leave the loop */
+
+		ut_ad(height == btr_page_get_level(page_cur_get_page(page_cursor),
+						   mtr));
+
+		if (level != height) {
+
+			const rec_t*	node_ptr;
+			ut_ad(height > 0);
+
+			height--;
+			guess = NULL;
+
+			node_ptr = page_cur_get_rec(page_cursor);
+
+			offsets = rec_get_offsets(
+				node_ptr, index, offsets, ULINT_UNDEFINED, &heap);
+
+			/* Go to the child node */
+			page_no = btr_node_ptr_get_child_page_no(node_ptr, offsets);
+			
+			if(height == 0)
+				goto get_info;
+
+			goto search_loop;
+		}
+get_info:
+		prefetch_info[page_count].space_no = space;
+		prefetch_info[page_count].page_no = page_no;
+		
+		page_count++;
+	}
+
+	/*==============PHASE 2. SORT =============*//**/
+	std::sort(prefetch_info, prefetch_info + page_count);
+	last = 0;
+	for(ulint i = 1; i < page_count; i++) {
+		if(!((prefetch_info[last].space_no == prefetch_info[i].space_no)
+				&& (prefetch_info[last].page_no == prefetch_info[i].page_no))) {
+			prefetch_info[++last] = prefetch_info[i];
+		}
+	}
+
+	prebuilt->page_count = last+1;
+func_exit:
+	if (UNIV_LIKELY_NULL(heap)) {
+		mem_heap_free(heap);
+	}
+
+	return (TRUE);
+}
+#endif
+
 /*****************************************************************//**
 Opens a cursor at either end of an index. */
 UNIV_INTERN
