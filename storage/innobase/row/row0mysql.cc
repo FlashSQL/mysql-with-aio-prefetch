@@ -868,14 +868,14 @@ row_create_prebuilt(
 		
 		prebuilt->ref_list = (rec_t **)malloc(sizeof(rec_t *)*srv_aio_prefetch_n);
 		prebuilt->clust_ref_list = (dtuple_t **)malloc(sizeof(dtuple_t *)*srv_aio_prefetch_n);
+		prebuilt->prefetch_info = (prefetch_t *)malloc(sizeof(prefetch_t)*srv_aio_prefetch_n);
 
 		for(ulint i = 0; i < srv_aio_prefetch_n; i++) {
 			prebuilt->ref_list[i] = NULL;
 			ref = dtuple_create(heap, ref_len);
 			prebuilt->clust_ref_list[i] = ref;
+			prebuilt->prefetch_info[i].index = i;
 		}
-
-		prebuilt->prefetch_info = (prefetch_t *)malloc(sizeof(prefetch_t)*srv_aio_prefetch_n);
 	}
 
 	return(prebuilt);

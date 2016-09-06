@@ -4836,12 +4836,13 @@ aio_prefetch:
 			/* Check if we find all records in which we have prefeteched pages. */
 			if(prebuilt->read_count != prebuilt->ref_count) {
 get_clust:
-				offsets = rec_get_offsets(prebuilt->ref_list[prebuilt->read_count],
+				uint32	ref_index = prebuilt->prefetch_info[prebuilt->read_count].index;
+				offsets = rec_get_offsets(prebuilt->ref_list[ref_index],
 								index, offsets, ULINT_UNDEFINED, &heap);
 
 				err = row_sel_get_clust_rec_for_mysql(prebuilt, index, 
-							prebuilt->ref_list[prebuilt->read_count],
-							thr, &clust_rec, &offsets, &heap, &mtr);
+							prebuilt->ref_list[ref_index], thr,
+							&clust_rec, &offsets, &heap, &mtr);
 
 				if(UNIV_UNLIKELY(clust_rec == NULL)) {
 					prebuilt->read_count++;
