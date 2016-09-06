@@ -531,12 +531,11 @@ struct big_rec_t {
 };
 
 /** A structure to contain AIO Prefetch information. */
-struct prefetch_t {
-	rec_t*	pre_rec;
-	dtuple_t*	pre_clust_ref;
+typedef struct prefetch_struct prefetch_t;
+struct prefetch_struct {
 	ulint	space_no;
 	ulint	page_no;
-};
+}prefetch_t;
   
 #ifndef UNIV_NONINL
 #include "data0data.ic"

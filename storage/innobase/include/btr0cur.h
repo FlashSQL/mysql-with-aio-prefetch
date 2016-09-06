@@ -181,7 +181,10 @@ btr_cur_search_child_page_no(
 /*========================*/
 	dict_index_t*	index,	/*!< in: index */
 	ulint		level,	/*!< in: the tree level of search */
-	row_prebuilt_t*	prebuilt,	/*!< in/out: contains information for AIO_Prefetch. */
+	dtuple_t**	clust_tuple,
+	prefetch_t*	prefetch,
+	ulint*		count,
+	ulint		ref_count,
 	ulint		mode,	/*!< in: PAGE_CUR_L, ...;
 				NOTE that if the search is made using a unique
 				prefix of a record, mode should be PAGE_CUR_LE,

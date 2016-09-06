@@ -25,13 +25,13 @@
 #ifndef aio0mul_h
 #define aio0mul_h
 
-#include "srv0srv.h"
-#include <stdio.h>
+//#include "srv0srv.h"
+//#include <stdio.h>
 
 /** How many records to be collected. 
   This value might be different from 
   the # of AIO Prefetch submision unit. */
-#define PREFETCH_ARRAY_N (srv_sort_buf_size / sizeof(prefetch_t))
+//#define PREFETCH_ARRAY_N (srv_sort_buf_size / sizeof(prefetch_t))
 
 #if 0
 extern aio_prefetch_array_n;
@@ -40,9 +40,6 @@ extern aio_prefetch_array_n;
 
 /* Activate Prefetch*/
 #define AIO_PREFETCH 1
-
-/* A struct to contain prefetch information. */
-struct prefetch_t;
 
 #endif
 

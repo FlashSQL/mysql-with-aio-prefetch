@@ -29,6 +29,6 @@ Created //2016 DASOM Hwang
 #ifndef row0prefetch_h
 #define row0prefetch_h
 
-#define AIO_PREFETCH
+//#define AIO_PREFETCH
 
 #endif

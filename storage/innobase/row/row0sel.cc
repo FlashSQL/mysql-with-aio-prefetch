@@ -65,6 +65,7 @@ Created 12/19/1997 Heikki Tuuri
 #include "aio0prefetch.h"
 #include "srv0srv.h"
 
+
 /* Maximum number of rows to prefetch; MySQL interface has another parameter */
 #define SEL_MAX_N_PREFETCH	16
 
@@ -3007,7 +3008,7 @@ static
 ibool
 row_sel_prefetch(
 /*==============*/
-	row_prebuilt_t*	prebuilt;	/*!< in: prebuilt struct in the handle
+	row_prebuilt_t*	prebuilt,	/*!< in: prebuilt struct in the handle
 					Contain information for prefetch */
 	dict_index_t*	sec_index,	/*!< in: secondary index where rec resides */
 	que_thr_t*		thr,		/*!< in: query thread */
@@ -3018,11 +3019,20 @@ row_sel_prefetch(
 					access the clustered index */
 {
 	dict_index_t*	clust_index;
+	/*ulint		;
+	ulint		;
+	dtuple_t**	;
+	prefetch_t*	;
+	btr_pcur_t*	;
+*/
 	ibool		succeed;
 
 	clust_index = dict_table_get_first_index(sec_index->table);
 	
-	succeed = btr_pcur_open_for_page_no(clust_index, prebuilt, PAGE_CUR_LE, BTR_NO_LATCHES, mtr);
+	succeed = btr_pcur_open_for_page_no(clust_index, prebuilt->clust_ref_list,
+						prebuilt->prefetch_info, &prebuilt->page_count,
+						prebuilt->ref_count, &prebuilt->prefetch_pcur,
+						PAGE_CUR_LE, BTR_NO_LATCHES, mtr);
 
 	if(succeed) {
 		ulint submitted = buf_async_prefetch(prebuilt->prefetch_info, prebuilt->page_count);
@@ -3721,6 +3731,9 @@ row_search_for_mysql(
 	ibool		table_lock_waited		= FALSE;
 	byte*		next_buf			= 0;
 
+#ifdef AIO_PREFETCH
+	ibool		err_prefetch;
+#endif
 	rec_offs_init(offsets_);
 
 	ut_ad(index && pcur && search_tuple);
@@ -4494,7 +4507,7 @@ wrong_offs:
 			fputs(" record not found 4\n", stderr);
 #endif
 #ifdef AIO_PREFETCH
-			if(srv_aio_use_prefetch) {
+			if(srv_use_aio_prefetch) {
 				if(UNIV_LIKELY(prebuilt->ref_count != 0)) {
 					goto aio_prefetch;
 				}
@@ -4785,14 +4798,14 @@ requires_clust_rec:
 		/* The following call returns 'offsets' associated with
 		'clust_rec'. Note that 'clust_rec' can be an old version
 		built for a consistent read. */
-#if AIO_PREFETCH
+#ifdef AIO_PREFETCH
 		if(srv_use_aio_prefetch) {
 			ut_ad(rec_offs_validate(rec, index, offsets));
 			/* If the current record is not NULL, copy it to a record array. */
 			if(rec != NULL) {
 				ulint ref_cnt = prebuilt->ref_count;
-				if(prebuilt->ref_list[ref_count] == NULL)
-					prebuilt->ref_list[ref_count] = (rec_t *)malloc(rec_offs_size(offsets));
+				if(prebuilt->ref_list[ref_cnt] == NULL)
+					prebuilt->ref_list[ref_cnt] = (rec_t *)malloc(rec_offs_size(offsets));
 				memcpy(prebuilt->ref_list[ref_cnt], rec, rec_offs_size(offsets));
 				rec_offs_make_valid(prebuilt->ref_list[ref_cnt], index, offsets);
 			
@@ -4800,7 +4813,7 @@ requires_clust_rec:
 										prebuilt->ref_list[ref_cnt], 
 										index, offsets, trx);
 
-				if(++prebuilt->ref_cnt < srv_aio_prefetch_n)
+				if(++prebuilt->ref_count < srv_aio_prefetch_n)
 					goto next_rec;
 				else {
 					prebuilt->aio_prefetch_enabled = TRUE;
@@ -4814,8 +4827,8 @@ requires_clust_rec:
 			/* Collect page numbers and submit AIOs for prefetching. */				
 			if(prebuilt->aio_prefetch_enabled) {
 aio_prefetch:
-				err = row_sel_prefetch(prebuilt, index, thr, &heap, &mtr);
-				if(err == DB_SUCCESS) {
+				err_prefetch = row_sel_prefetch(prebuilt, index, thr, &heap, &mtr);
+				if(err_prefetch == TRUE) {
 					prebuilt->aio_prefetch_enabled = FALSE;
 					prebuilt->ref_gathering_done = TRUE;
 				}

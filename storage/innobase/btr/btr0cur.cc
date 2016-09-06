@@ -824,6 +824,29 @@ func_exit:
 }
 
 #ifdef AIO_PREFETCH
+int prefetch_info_cmp(
+	const void* p1,
+	const void* p2)
+{
+	const prefetch_t*   a = (const prefetch_t *) p1;
+	const prefetch_t*   b = (const prefetch_t *) p2;
+
+	ulint sa = a->space_no;
+	ulint sb = b->space_no;
+	ulint pa = a->page_no;
+	ulint pb = b->page_no;
+
+	if(sa < sb)
+		return -1;
+	if(sa > sb)
+		return 1;
+	if(pa < pb)
+		return -1;
+	if(pa > pb)
+		return 1;
+	return 0;  
+}              
+
 /********************************************************************//**
 Searches an index tree and positions a tree cursor on a given level.
 And stores a child page number. */
@@ -833,7 +856,10 @@ btr_cur_search_child_page_no(
 /*========================*/
 	dict_index_t*	index,	/*!< in: index */
 	ulint		level,	/*!< in: the tree level of search */
-	row_prebuilt_t*	prebuilt,	/*!< in/out: contains information for AIO_Prefetch. */
+	dtuple_t**	clust_tuple,
+	prefetch_t*	prefetch,
+	ulint*		count,
+	ulint		ref_count,
 	ulint		mode,	/*!< in: PAGE_CUR_L, ...;
 				NOTE that if the search is made using a unique
 				prefix of a record, mode should be PAGE_CUR_LE,
@@ -889,11 +915,17 @@ btr_cur_search_child_page_no(
 	ulint*		offsets		= offsets_;
 	rec_offs_init(offsets_);
 
+	prefetch_t* prefetch_info = prefetch;
+	const dtuple_t** ref_tuple = (const dtuple_t **)clust_tuple;
+	const dtuple_t*	tuple;
+	ulint 	page_count = 0;
+	/*
 	prefetch_t*	prefetch_info = prebuilt->prefetch_info;
 	const dtuple_t**	ref_tuple = (const dtuple_t **)prebuilt->ref_clust_list;
 	const dtuple_t*	tuple;
 	ulint		page_count = 0;
 	ulint		count = prebuilt->ref_count;
+	*/
 	ulint		last;
 	
 	
@@ -901,9 +933,7 @@ btr_cur_search_child_page_no(
 	ending to upper levels */
 
 	ut_ad(level == 0 || mode == PAGE_CUR_LE);
-	ut_ad(dict_index_check_search_tuple(index, tuple));
 	ut_ad(!dict_index_is_ibuf(index) || ibuf_inside(mtr));
-	ut_ad(dtuple_check_typed(tuple));
 	ut_ad(!(index->type & DICT_FTS));
 	ut_ad(index->page != FIL_NULL);
 
@@ -949,42 +979,7 @@ btr_cur_search_child_page_no(
 	info = btr_search_get_info(index);
 
 	guess = info->root_guess;
-
-#ifdef BTR_CUR_HASH_ADAPT
-
-# ifdef UNIV_SEARCH_PERF_STAT
-	info->n_searches++;
-# endif
-	if (rw_lock_get_writer(&btr_search_latch) == RW_LOCK_NOT_LOCKED
-	    && latch_mode <= BTR_MODIFY_LEAF
-	    && info->last_hash_succ
-	    && !estimate
-# ifdef PAGE_CUR_LE_OR_EXTENDS
-	    && mode != PAGE_CUR_LE_OR_EXTENDS
-# endif /* PAGE_CUR_LE_OR_EXTENDS */
-	    /* If !has_search_latch, we do a dirty read of
-	    btr_search_enabled below, and btr_search_guess_on_hash()
-	    will have to check it again. */
-	    && UNIV_LIKELY(btr_search_enabled)
-	    && btr_search_guess_on_hash(index, info, tuple, mode,
-					latch_mode, cursor,
-					has_search_latch, mtr)) {
-
-		/* Search using the hash index succeeded */
-
-		ut_ad(cursor->up_match != ULINT_UNDEFINED
-		      || mode != PAGE_CUR_GE);
-		ut_ad(cursor->up_match != ULINT_UNDEFINED
-		      || mode != PAGE_CUR_LE);
-		ut_ad(cursor->low_match != ULINT_UNDEFINED
-		      || mode != PAGE_CUR_LE);
-		btr_cur_n_sea++;
-
-		return;
-	}
-# endif /* BTR_CUR_HASH_ADAPT */
-#endif /* BTR_CUR_ADAPT */
-	btr_cur_n_non_sea++;
+#endif
 
 	/* If the hash search did not succeed, do binary search down the
 	tree */
@@ -1024,7 +1019,11 @@ btr_cur_search_child_page_no(
 		ut_ad(mode == PAGE_CUR_L || mode == PAGE_CUR_LE);
 #endif /* PAGE_CUR_LE_OR_EXTENDS */
 		page_mode = mode;
-		break;
+
+		tuple = ref_tuple[page_count];
+
+		ut_ad(dict_index_check_search_tuple(index, tuple));
+		ut_ad(dtuple_check_typed(tuple));
 		
 		/* Loop and search until we arrive at the desired level */
 search_loop:
@@ -1130,7 +1129,8 @@ get_info:
 	}
 
 	/*==============PHASE 2. SORT =============*//**/
-	std::sort(prefetch_info, prefetch_info + page_count);
+//	std::sort(prefetch_info, prefetch_info + page_count);
+	qsort(prefetch_info, page_count, sizeof(prefetch_t), prefetch_info_cmp);
 	last = 0;
 	for(ulint i = 1; i < page_count; i++) {
 		if(!((prefetch_info[last].space_no == prefetch_info[i].space_no)
@@ -1139,8 +1139,8 @@ get_info:
 		}
 	}
 
-	prebuilt->page_count = last+1;
-func_exit:
+	*(count) = last+1;
+	
 	if (UNIV_LIKELY_NULL(heap)) {
 		mem_heap_free(heap);
 	}

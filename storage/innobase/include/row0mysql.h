@@ -36,6 +36,8 @@ Created 9/17/2000 Heikki Tuuri
 #include "btr0pcur.h"
 #include "trx0types.h"
 
+#include "aio0prefetch.h"
+
 // Forward declaration
 struct SysIndexCallback;
 
@@ -880,7 +882,7 @@ struct row_prebuilt_t {
 	uint		srch_key_val_len; /*!< Size of search key */
 #ifdef AIO_PREFETCH
 	btr_pcur_t	prefetch_pcur;
-	rec_t**	rec_list;			/* Array for secodary index records.*/
+	rec_t**	ref_list;			/* Array for secodary index records.*/
 	dtuple_t**	clust_ref_list; /* Array for reference tuples extracted from rec_list.*/
 	prefetch_t*	prefetch_info;	/* Array for AIO_Prefetch.
 					 Eliminate duplicated information. */

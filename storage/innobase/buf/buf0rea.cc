@@ -413,10 +413,10 @@ buf_async_prefetch(
 	}
 
 	for(i = 0; i < page_count; i++) {
-		space = prefetch_info[i].space.no;
+		space = prefetch_info[i].space_no;
 		offset = prefetch_info[i].page_no;
 		
-		zip_size = fil_spage_get_zip_size(space);
+		zip_size = fil_space_get_zip_size(space);
 
 		if(zip_size == ULINT_UNDEFINED) {
 			return (FALSE);
@@ -435,7 +435,7 @@ buf_async_prefetch(
 
 		if(block == NULL) {
 			count+= buf_read_page_low(&err, false, BUF_READ_ANY_PAGE
-					| OS_AIO_SIMULATED_WAKE_LATER
+					| OS_AIO_SIMULATED_WAKE_LATER,
 					space, zip_size, FALSE,
 					tablespace_version, offset);
 			if (err == DB_TABLESPACE_DELETED) {
@@ -468,7 +468,7 @@ buf_async_prefetch(
 	LRU policy decision. */
 	buf_LRU_stat_inc_io();
 
-	srv_stats.buf_pool_async_prefetch_reads.add(count);
+	//srv_stats.buf_pool_async_prefetch_reads.add(count);
 	srv_stats.buf_pool_reads.add(count);
 	return(count);
 }

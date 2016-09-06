@@ -29,6 +29,8 @@ Created 11/5/1995 Heikki Tuuri
 #include "univ.i"
 #include "buf0types.h"
 
+#include "data0data.h"
+#include "aio0prefetch.h"
 /********************************************************************//**
 High-level function which reads a page asynchronously from a file to the
 buffer buf_pool if it is not already there. Sets the io_fix flag and sets
@@ -85,13 +87,8 @@ UNIV_INTERN
 ulint
 buf_async_prefetch(
 /*==================*/
-	ulint	space,		/*!< in: space id */
-	ulint	zip_size,	/*!< in: compressed page size in bytes,
-				or 0 */
-	ulint	offset,		/*!< in: page number of a page which
-				the current thread wants to access */
-	ibool	inside_ibuf);	/*!< in: TRUE if we are inside ibuf
-				routine */
+	prefetch_t*	prefetch_info,	/*!< in: information for page read requests */
+	ulint		page_count);	/*!< in: desired # of page read requests */
 /********************************************************************//**
 Applies linear read-ahead if in the buf_pool the page is a border page of
 a linear read-ahead area and all the pages in the area have been accessed.

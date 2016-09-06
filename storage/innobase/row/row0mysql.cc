@@ -858,17 +858,19 @@ row_create_prebuilt(
 
 	prebuilt->mysql_row_len = mysql_row_len;
 	if(srv_use_aio_prefetch) {
+		btr_pcur_reset(&prebuilt->prefetch_pcur);
+		
 		prebuilt->ref_count = 0;
 		prebuilt->page_count = 0;
 		prebuilt->read_count = 0;
 		prebuilt->aio_prefetch_enabled = FALSE;
 		prebuilt->ref_gathering_done = FALSE;
 		
-		prebuilt->rec_list = (rec_t **)malloc(sizeof(rec_t *)*srv_aio_prefetch_n);
+		prebuilt->ref_list = (rec_t **)malloc(sizeof(rec_t *)*srv_aio_prefetch_n);
 		prebuilt->clust_ref_list = (dtuple_t **)malloc(sizeof(dtuple_t *)*srv_aio_prefetch_n);
 
 		for(ulint i = 0; i < srv_aio_prefetch_n; i++) {
-			prebuilt->rec_list[i] = NULL;
+			prebuilt->ref_list[i] = NULL;
 			ref = dtuple_create(heap, ref_len);
 			prebuilt->clust_ref_list[i] = ref;
 		}
@@ -974,7 +976,7 @@ row_prebuilt_free(
 	dict_table_close(prebuilt->table, dict_locked, TRUE);
 
 	for(ulint i = 0; i < srv_aio_prefetch_n; i++) {
-		free(prebuilt->rec_list[i]);
+		free(prebuilt->ref_list[i]);
 	}
 	free(prebuilt->clust_ref_list);
 	free(prebuilt->prefetch_info);

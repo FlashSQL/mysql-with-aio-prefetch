@@ -35,6 +35,7 @@ Created 2/23/1996 Heikki Tuuri
 #include "btr0btr.h"
 #include "btr0types.h"
 
+#include "aio0prefetch.h"
 /* Relative positions for a stored cursor position */
 #define BTR_PCUR_ON			1
 #define BTR_PCUR_BEFORE			2
@@ -212,27 +213,32 @@ btr_pcur_open_at_rnd_pos_func(
 #define btr_pcur_open_at_rnd_pos(i,l,c,m)				\
 	btr_pcur_open_at_rnd_pos_func(i,l,c,__FILE__,__LINE__,m)
 
+#ifdef AIO_PREFETCH
 /****************************************************//**
 Find and collect child-page numbers for AIO Prefetch. */
 UNIV_INLINE
 ibool
 btr_pcur_open_for_page_no_low(
 /*=============*/
-		dict_index_t*	index, /*!< in: index */
-		ulint		level,	/*<! in: level in the btree */
-		row_prebuilt_t*	prebuilt, /*<! in/out: contains information for AIO_Prefetch */
-		ulint		mode,	/*<! in: PAGE_CUR_L, ...;
-					NOTE that if the search is made using a unique
-					prefix of a record, mode should be
-					PAGE_CUR_LE, not PAGE_CUR_GE, as the latter
-					may end up on the previous page from the
-					record! */
-		ulint		latch_mode,	/*!< in: BTR_SEARCH_LEAF, ... */
-		const char*	file,	/*!< in: file name */
-		ulint		line,	/*!< in: line where called */
-		mtr_t*		mtr);	/*!< in: mtr */
-#define btr_pcur_open_for_page_no(i,p,md,l,m)		\
-	btr_pcur_open_for_page_no_low(i,0,p,md,l,__FILE__, __LINE__,m)
+	dict_index_t*	index, /*!< in: index */
+	ulint		level,	/*<! in: level in the btree */
+	dtuple_t**	tuple,
+	prefetch_t*	prefetch,
+	ulint*		page_count,
+	ulint		ref_count,
+	btr_pcur_t*	prefetch_cursor,
+	ulint		mode,	/*<! in: PAGE_CUR_L, ...;
+				NOTE that if the search is made using a unique
+				prefix of a record, mode should be
+				PAGE_CUR_LE, not PAGE_CUR_GE, as the latter
+				may end up on the previous page from the
+				record! */
+	ulint		latch_mode,	/*!< in: BTR_SEARCH_LEAF, ... */
+	const char*	file,	/*!< in: file name */
+	ulint		line,	/*!< in: line where called */
+	mtr_t*		mtr);	/*!< in: mtr */
+#define btr_pcur_open_for_page_no(i,t,p,pcnt,rcnt,pcur,md,l,m)		\
+	btr_pcur_open_for_page_no_low(i,0,t,p,pcnt,rcnt,pcur,md,l,__FILE__, __LINE__,m)
 #endif
 
 /**************************************************************//**
