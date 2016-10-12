@@ -84,7 +84,7 @@ buf_read_ahead_random(
 /********************************************************************//**
 */
 UNIV_INTERN
-ulint
+ibool
 buf_async_prefetch(
 /*==================*/
 	prefetch_t*	prefetch_info,	/*!< in: information for page read requests */

@@ -388,7 +388,7 @@ read_ahead:
 Submit read requests asynchronously.
 @return	number of page read requests issued */
 UNIV_INTERN
-ulint
+ibool
 buf_async_prefetch(
 /*==================*/
 	prefetch_t*	prefetch_info,	/*!< in: information for page read requests */
@@ -407,7 +407,7 @@ buf_async_prefetch(
 	ulint		offset;
 	ulint		i;
 
-	if (!srv_use_aio_prefetch) {
+	if (!srv_use_aio_prefetch || !srv_use_batch_aio) {
 		/* Disabled by user */
 		return(0);
 	}
@@ -424,29 +424,31 @@ buf_async_prefetch(
 
 		tablespace_version = fil_space_get_version(space);
 
-		/*=========== Check if a page in buffer ================*/
-		buf_pool = buf_pool_get(space, offset);
-		fold = buf_page_address_fold(space, offset);
-		hash_lock = buf_page_hash_lock_get(buf_pool, fold);
-		rw_lock_s_lock(hash_lock);
-		block = (buf_block_t *)buf_page_hash_get_low(
-				        buf_pool, space, offset, fold);
-		rw_lock_s_unlock(hash_lock);
+		if(!ibuf_bitmap_page(zip_size, offset)) {
+			/*=========== Check if a page in buffer ================*/
+			buf_pool = buf_pool_get(space, offset);
+			fold = buf_page_address_fold(space, offset);
+			hash_lock = buf_page_hash_lock_get(buf_pool, fold);
+			rw_lock_s_lock(hash_lock);
+			block = (buf_block_t *)buf_page_hash_get_low(
+							buf_pool, space, offset, fold);
+			rw_lock_s_unlock(hash_lock);
 
-		if(block == NULL) {
-			count+= buf_read_page_low(&err, false, BUF_READ_ANY_PAGE
-					| OS_AIO_SIMULATED_WAKE_LATER,
-					space, zip_size, FALSE,
-					tablespace_version, offset);
-			if (err == DB_TABLESPACE_DELETED) {
-				ut_print_timestamp(stderr);
-				fprintf(stderr,
-					"  InnoDB: Warning: in random"
-					" readahead trying to access\n"
-					"InnoDB: tablespace %lu page %lu,\n"
-					"InnoDB: but the tablespace does not"
-					" exist or is just being dropped.\n",
-					(ulong) space, (ulong) i);
+			if(block == NULL) {
+				count+= buf_read_page_low(&err, false, BUF_READ_ANY_PAGE
+						| OS_AIO_SIMULATED_WAKE_LATER,
+						space, zip_size, FALSE,
+						tablespace_version, offset);
+				if (err == DB_TABLESPACE_DELETED) {
+					ut_print_timestamp(stderr);
+					fprintf(stderr,
+						"  InnoDB: Warning: in random"
+						" readahead trying to access\n"
+						"InnoDB: tablespace %lu page %lu,\n"
+						"InnoDB: but the tablespace does not"
+						" exist or is just being dropped.\n",
+						(ulong) space, (ulong) i);
+				}
 			}
 		}
 	}

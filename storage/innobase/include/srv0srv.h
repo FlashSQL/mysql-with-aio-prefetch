@@ -250,6 +250,7 @@ extern ulint*	srv_data_file_is_raw_partition;
 /* AIO_PREFETCH variables */
 #ifdef AIO_PREFETCH
 extern ibool    srv_use_aio_prefetch;
+extern ibool	srv_use_batch_aio;
 # ifdef UNIV_DEBUG
 extern ibool    srv_print_aio_prefetch_debug;
 # endif

@@ -1131,6 +1131,7 @@ get_info:
 	/*==============PHASE 2. SORT =============*//**/
 //	std::sort(prefetch_info, prefetch_info + page_count);
 	qsort(prefetch_info, page_count, sizeof(prefetch_t), prefetch_info_cmp);
+/*
 	last = 0;
 	for(ulint i = 1; i < page_count; i++) {
 		if(!((prefetch_info[last].space_no == prefetch_info[i].space_no)
@@ -1138,9 +1139,9 @@ get_info:
 			prefetch_info[++last] = prefetch_info[i];
 		}
 	}
+*/
+	*(count) = page_count;
 
-	*(count) = last+1;
-	
 	if (UNIV_LIKELY_NULL(heap)) {
 		mem_heap_free(heap);
 	}

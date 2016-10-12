@@ -277,6 +277,7 @@ UNIV_INTERN ulong	srv_max_io_capacity     = 400;
 #include "aio0prefetch.h"
 #ifdef AIO_PREFETCH
 UNIV_INTERN ibool   srv_use_aio_prefetch = FALSE;
+UNIV_INTERN ibool	srv_use_batch_aio	 =  FALSE;
 # ifdef UNIV_DEBUG
 UNIV_INTERN ibool   srv_print_aio_prefetch_debug = TRUE;
 # endif

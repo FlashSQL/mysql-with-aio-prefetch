@@ -148,7 +148,7 @@ sub quote_options {
 my $me = get_full_path($0);
 $basedir = dirname(dirname($me)); # Remove "/bin/mysql_config" part
 
-my $ldata   = '/usr/local/mysql/data';
+my $ldata   = '/home/som/bin/test/data';
 my $execdir = '/home/som/bin/test/bin';
 my $bindir  = '/home/som/bin/test/bin';
 

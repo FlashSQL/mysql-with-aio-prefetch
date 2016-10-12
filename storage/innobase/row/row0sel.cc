@@ -3035,9 +3035,9 @@ row_sel_prefetch(
 						PAGE_CUR_LE, BTR_NO_LATCHES, mtr);
 
 	if(succeed) {
-		ulint submitted = buf_async_prefetch(prebuilt->prefetch_info, prebuilt->page_count);
-		if(submitted != 0)
-			return (TRUE);
+		ibool submitted = buf_async_prefetch(prebuilt->prefetch_info, prebuilt->page_count);
+//		if(submitted != 0)
+			return submitted;
 	}
 	return (FALSE);
 }
@@ -4183,7 +4183,7 @@ wait_table_again:
 		/* We have just started and read a record so go back to do AIO_PREFETCH. */
 		if(srv_use_aio_prefetch) {
 			if(prebuilt->ref_gathering_done) {
-				goto requires_clust_rec;
+				goto get_clust;
 			}
 		}
 #endif
@@ -4804,8 +4804,9 @@ requires_clust_rec:
 			/* If the current record is not NULL, copy it to a record array. */
 			if(rec != NULL) {
 				ulint ref_cnt = prebuilt->ref_count;
-				if(prebuilt->ref_list[ref_cnt] == NULL)
+				if(prebuilt->ref_list[ref_cnt] == NULL) {
 					prebuilt->ref_list[ref_cnt] = (rec_t *)malloc(rec_offs_size(offsets));
+				}
 				memcpy(prebuilt->ref_list[ref_cnt], rec, rec_offs_size(offsets));
 				rec_offs_make_valid(prebuilt->ref_list[ref_cnt], index, offsets);
 			
@@ -4828,7 +4829,7 @@ requires_clust_rec:
 			if(prebuilt->aio_prefetch_enabled) {
 aio_prefetch:
 				err_prefetch = row_sel_prefetch(prebuilt, index, thr, &heap, &mtr);
-				if(err_prefetch == TRUE) {
+				if(err_prefetch) {
 					prebuilt->aio_prefetch_enabled = FALSE;
 					prebuilt->ref_gathering_done = TRUE;
 				}
@@ -4836,7 +4837,8 @@ aio_prefetch:
 			/* Check if we find all records in which we have prefeteched pages. */
 			if(prebuilt->read_count != prebuilt->ref_count) {
 get_clust:
-				uint32	ref_index = prebuilt->prefetch_info[prebuilt->read_count].index;
+				ulint	ref_index = prebuilt->read_count;
+				//prebuilt->prefetch_info[prebuilt->read_count].index;
 				offsets = rec_get_offsets(prebuilt->ref_list[ref_index],
 								index, offsets, ULINT_UNDEFINED, &heap);
 
@@ -4849,10 +4851,7 @@ get_clust:
 					goto get_clust;
 				}
 			}
-
 		} // SRV_USE_AIO_PREFETCH
-/* We doubt a performance difference in caces to read the required records 
-   - in the orginal order or a sorted order.*/		
 #else
 		ut_ad(rec_offs_validate(rec, index, offsets));
 		err = row_sel_get_clust_rec_for_mysql(prebuilt, index, rec,

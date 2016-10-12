@@ -37,7 +37,6 @@ Created 9/17/2000 Heikki Tuuri
 #include "trx0types.h"
 
 #include "aio0prefetch.h"
-
 // Forward declaration
 struct SysIndexCallback;
 

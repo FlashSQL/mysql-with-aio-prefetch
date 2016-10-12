@@ -159,6 +159,7 @@ static char*	innobase_reset_all_monitor_counter	= NULL;
 /* These variables can be set for asynchronouns prefetch. */
 #ifdef AIO_PREFETCH
 my_bool	innobase_use_aio_prefetch = FALSE;
+my_bool	innobase_use_batch_aio	= FALSE;
 # ifdef UNIV_DEBUG
 static my_bool	innobase_print_aio_prefetch_debug = TRUE;
 # endif
@@ -3316,6 +3317,7 @@ innobase_change_buffering_inited_ok:
 
 #ifdef AIO_PREFETCH
 	srv_use_aio_prefetch = (ibool) innobase_use_aio_prefetch;
+	srv_use_batch_aio	= (ibool) innobase_use_batch_aio;
 # ifdef UNIV_DEBUG
 	srv_print_aio_prefetch_debug = (ibool) innobase_print_aio_prefetch_debug;
 # endif
@@ -15911,7 +15913,10 @@ static MYSQL_SYSVAR_BOOL(use_aio_prefetch, innobase_use_aio_prefetch,
 		PLUGIN_VAR_OPCMDARG,
 		"Set AIO_PREFETCH disable(default)",
 		NULL, NULL, FALSE);
-
+static MYSQL_SYSVAR_BOOL(use_batch_aio, innobase_use_batch_aio,
+		PLUGIN_VAR_OPCMDARG,
+		"Set BATCH_AIO disable(default)",
+		NULL, NULL, FALSE);
 # ifdef UNIV_DEBUG
 static MYSQL_SYSVAR_BOOL(print_aio_prefetch_debug, innobase_print_aio_prefetch_debug,
 		PLUGIN_VAR_OPCMDARG,

@@ -799,8 +799,9 @@ row_create_prebuilt(
 	calls */
 	if(srv_use_aio_prefetch) {
 		heap = mem_heap_create(PREBUILT_HEAP_INITIAL_SIZE + 2 * srch_key_len
-				+ srv_aio_prefetch_n * (ref_len + sizeof(dtuple_t *))
-			 	+ sizeof(rec_t **) + sizeof(prefetch_t *) + sizeof(dtuple_t**)
+				+ srv_aio_prefetch_n * (ref_len + sizeof(dtuple_t *)
+			 	+ sizeof(rec_t *) + sizeof(prefetch_t)) + sizeof(rec_t **)
+				+ sizeof(prefetch_t *) + sizeof(dtuple_t **)
 				+ sizeof(btr_pcur_t) + 3 * sizeof(ulint) + 2 * sizeof(ibool));
 	}
 	else {
@@ -874,7 +875,7 @@ row_create_prebuilt(
 			prebuilt->ref_list[i] = NULL;
 			ref = dtuple_create(heap, ref_len);
 			prebuilt->clust_ref_list[i] = ref;
-			prebuilt->prefetch_info[i].index = i;
+//			prebuilt->prefetch_info[i].index = i;
 		}
 	}
 
