@@ -158,8 +158,8 @@ static char*	innobase_reset_all_monitor_counter	= NULL;
 //#include "aio0prefetch.h"
 /* These variables can be set for asynchronouns prefetch. */
 #ifdef AIO_PREFETCH
-my_bool	innobase_use_aio_prefetch = FALSE;
-my_bool	innobase_use_batch_aio	= FALSE;
+static my_bool	innobase_use_aio_prefetch = FALSE;
+static my_bool	innobase_use_batch_aio	= FALSE;
 # ifdef UNIV_DEBUG
 static my_bool	innobase_print_aio_prefetch_debug = TRUE;
 # endif
@@ -16829,6 +16829,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(io_capacity_max),
 #ifdef AIO_PREFETCH
   MYSQL_SYSVAR(use_aio_prefetch),
+  MYSQL_SYSVAR(use_batch_aio),
 # ifdef UNIV_DEBUG
   MYSQL_SYSVAR(print_aio_prefetch_prefetch),
 # endif

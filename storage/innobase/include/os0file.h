@@ -311,9 +311,9 @@ The wrapper functions have the prefix of "innodb_". */
 	pfs_os_file_close_func(file, __FILE__, __LINE__)
 
 # define os_aio(type, mode, name, file, buf, offset,			\
-		n, message1, message2)					\
+		n, message1, message2, batch_aio, batch_size)					\
 	pfs_os_aio_func(type, mode, name, file, buf, offset,		\
-			n, message1, message2, __FILE__, __LINE__)
+			n, message1, message2, __FILE__, __LINE__, batch_aio, batch_size)
 
 # define os_file_read(file, buf, offset, n)				\
 	pfs_os_file_read_func(file, buf, offset, n, __FILE__, __LINE__)
@@ -354,9 +354,10 @@ to original un-instrumented file I/O APIs */
 
 # define os_file_close(file)	os_file_close_func(file)
 
-# define os_aio(type, mode, name, file, buf, offset, n, message1, message2) \
+# define os_aio(type, mode, name, file, buf, offset, n, message1, message2, \
+				batch_aio, batch_size)	\
 	os_aio_func(type, mode, name, file, buf, offset, n,		\
-		    message1, message2)
+		    message1, message2, batch_aio, batch_size)
 
 # define os_file_read(file, buf, offset, n)	\
 	os_file_read_func(file, buf, offset, n)
@@ -759,7 +760,9 @@ pfs_os_aio_func(
 				aio operation); ignored if mode is
                                 OS_AIO_SYNC */
 	const char*	src_file,/*!< in: file name where func invoked */
-	ulint		src_line);/*!< in: line where the func invoked */
+	ulint		src_line,/*!< in: line where the func invoked */
+	ibool		batch_aio,
+	ulint		batch_size);
 /*******************************************************************//**
 NOTE! Please use the corresponding macro os_file_write(), not directly
 this function!
@@ -1118,10 +1121,12 @@ os_aio_func(
 				(can be used to identify a completed
 				aio operation); ignored if mode is
 				OS_AIO_SYNC */
-	void*		message2);/*!< in: message for the aio handler
+	void*		message2,/*!< in: message for the aio handler
 				(can be used to identify a completed
 				aio operation); ignored if mode is
 				OS_AIO_SYNC */
+	ibool		batch_aio,
+	ulint		batch_size);
 /************************************************************************//**
 Wakes up all async i/o threads so that they know to exit themselves in
 shutdown. */
