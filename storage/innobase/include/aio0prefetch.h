@@ -39,7 +39,7 @@ extern aio_prefetch_array_n;
 #endif
 
 /* Activate Prefetch*/
-#define AIO_PREFETCH 1
+#define AIO_PREFETCH 0
 
 #endif
 

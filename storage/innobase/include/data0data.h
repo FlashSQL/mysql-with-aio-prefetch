@@ -532,9 +532,8 @@ struct big_rec_t {
 
 /** A structure to contain AIO Prefetch information. */
 typedef struct prefetch_struct {
-//	uint32	index;
-	ulint	space_no;
-	ulint	page_no;
+	ulint	space_no;	/*!< I/O-desired tablespace number */
+	ulint	page_no;	/*!< I/O-desired page number */
 }prefetch_t;
   
 #ifndef UNIV_NONINL

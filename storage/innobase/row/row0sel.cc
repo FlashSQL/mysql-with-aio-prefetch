@@ -3019,12 +3019,6 @@ row_sel_prefetch(
 					access the clustered index */
 {
 	dict_index_t*	clust_index;
-	/*ulint		;
-	ulint		;
-	dtuple_t**	;
-	prefetch_t*	;
-	btr_pcur_t*	;
-*/
 	ibool		succeed;
 
 	clust_index = dict_table_get_first_index(sec_index->table);
@@ -3036,7 +3030,6 @@ row_sel_prefetch(
 
 	if(succeed) {
 		ibool submitted = buf_async_prefetch(prebuilt->prefetch_info, prebuilt->page_count);
-//		if(submitted != 0)
 			return submitted;
 	}
 	return (FALSE);

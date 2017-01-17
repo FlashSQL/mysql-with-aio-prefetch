@@ -4527,9 +4527,6 @@ os_aio_linux_dispatch_read_array_submit()
 		ulint slots_per_segment;
 		ulint iocb_index;
 		ulint submitted;
-
-		/* Do we need to consider and check outstanding AIO request threshold? 
-		 It may depend on storages. */
 		
 		os_mutex_enter(array->mutex);
 		
@@ -4551,9 +4548,6 @@ os_aio_linux_dispatch_read_array_submit()
 			errno = -submitted;
 			break;
 		}
-#if 0
-		fprintf(stderr, "[AIO_SUBMIT] count[%lu]: %lu, submitted: %lu\n", i, count, submitted);
-#endif 
 		array->global_count -= submitted;
 		array->submitted[i] = submitted;
 
@@ -4562,9 +4556,6 @@ os_aio_linux_dispatch_read_array_submit()
 				sizeof(struct iocb*) * slots_per_segment);
 		array->count[i] = 0;
 		os_mutex_exit(array->mutex);
-
-		/* Need to add statistics. */
-		//srv_stats.n_aio_submitted.add(submitted);
 	}
 }
 #endif
@@ -4579,8 +4570,8 @@ os_aio_linux_dispatch(
 /*==================*/
 	os_aio_array_t*	array,	/*!< in: io request array. */
 	os_aio_slot_t*	slot,	/*!< in: an already reserved slot. */
-	ibool			batch_aio,
-	ulint			batch_size)
+	ibool		batch_aio, /*!<in: determine to submit a bunch of aio requests in an array. */
+	ulint		batch_size) /*!<in: how many aio requests are submitted simultaneously.*/ 
 {
 	int		ret;
 	ulint		io_ctx_index;
@@ -4610,11 +4601,11 @@ os_aio_linux_dispatch(
 		array->global_count++;
 //		count = array->count[io_ctx_index];
 		count = array->global_count;
-#if !DASOM
+#if 0
 		fprintf(stderr, "[AIO_DISPATCH] total: %lu, count[%lu]: %lu\n", array->global_count, io_ctx_index, array->count[io_ctx_index]);
 #endif 		
 		os_mutex_exit(array->mutex);
-		/* Current : aio_preftch unit == slots_per_segment. -- will be fixed. */
+		/* Current : MAX batch_aio unit == slots_per_segment. -- will be fixed. */
 		/*fprintf(stderr, "[AIO_DISPATCH] count[%lu]: %lu\n", io_ctx_index, array->count[io_ctx_index]);*/
 		if(count >= batch_size || count >= array->n_slots) {
 			os_aio_linux_dispatch_read_array_submit();

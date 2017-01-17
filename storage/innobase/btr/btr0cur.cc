@@ -856,10 +856,10 @@ btr_cur_search_child_page_no(
 /*========================*/
 	dict_index_t*	index,	/*!< in: index */
 	ulint		level,	/*!< in: the tree level of search */
-	dtuple_t**	clust_tuple,
-	prefetch_t*	prefetch,
-	ulint*		count,
-	ulint		ref_count,
+	dtuple_t**	tuple,	/*<! in: search tuple list: prebuilt->clust_ref_list */
+	prefetch_t*	prefetch,	/*<! in/out: store space number and page number for AIO Prefetch */
+	ulint*		page_count,	/*<! in/out: the number of pages in PREFETCH */
+	ulint		ref_count,	/*<! in/out: the number of tuples in search tuple list */
 	ulint		mode,	/*!< in: PAGE_CUR_L, ...;
 				NOTE that if the search is made using a unique
 				prefix of a record, mode should be PAGE_CUR_LE,
@@ -1096,12 +1096,9 @@ retry_page_get:
 		}
 
 		/* If this is the desired level, leave the loop */
-
-		ut_ad(height == btr_page_get_level(page_cur_get_page(page_cursor),
-						   mtr));
+		ut_ad(height == btr_page_get_level(page_cur_get_page(page_cursor), mtr));
 
 		if (level != height) {
-
 			const rec_t*	node_ptr;
 			ut_ad(height > 0);
 
@@ -1129,17 +1126,8 @@ get_info:
 	}
 
 	/*==============PHASE 2. SORT =============*//**/
-//	std::sort(prefetch_info, prefetch_info + page_count);
 	qsort(prefetch_info, page_count, sizeof(prefetch_t), prefetch_info_cmp);
-/*
-	last = 0;
-	for(ulint i = 1; i < page_count; i++) {
-		if(!((prefetch_info[last].space_no == prefetch_info[i].space_no)
-				&& (prefetch_info[last].page_no == prefetch_info[i].page_no))) {
-			prefetch_info[++last] = prefetch_info[i];
-		}
-	}
-*/
+	
 	*(count) = page_count;
 
 	if (UNIV_LIKELY_NULL(heap)) {

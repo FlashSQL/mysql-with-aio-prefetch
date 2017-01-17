@@ -875,7 +875,6 @@ row_create_prebuilt(
 			prebuilt->ref_list[i] = NULL;
 			ref = dtuple_create(heap, ref_len);
 			prebuilt->clust_ref_list[i] = ref;
-//			prebuilt->prefetch_info[i].index = i;
 		}
 	}
 

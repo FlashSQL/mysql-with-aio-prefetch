@@ -560,11 +560,11 @@ btr_pcur_open_for_page_no_low(
 /*=============*/
 	dict_index_t*	index, /*!< in: index */
 	ulint		level,	/*<! in: level in the btree */
-	dtuple_t**	tuple,
-	prefetch_t*	prefetch,
-	ulint*		page_count,
-	ulint		ref_count,
-	btr_pcur_t*	prefetch_cursor,
+	dtuple_t**	tuple,	/*<! in: search tuple list: prebuilt->clust_ref_list */
+	prefetch_t*	prefetch,	/*<! in/out: store space number and page number for AIO Prefetch */
+	ulint*		page_count,	/*<! in/out: the number of pages in PREFETCH */
+	ulint		ref_count,	/*<! in/out: the number of tuples in search tuple list */
+	btr_pcur_t*	prefetch_cursor, /*<! in: a cursor for AIO Prefetch */
 	ulint		mode,	/*<! in: PAGE_CUR_L, ...;
 				NOTE that if the search is made using a unique
 				prefix of a record, mode should be
